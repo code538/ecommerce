@@ -29,6 +29,7 @@ class OrderController extends BaseController
 
         $order = Order::with([
             'items.product',
+            'items.variant',
             'payment',
             'tracks'
         ])->find($id);
