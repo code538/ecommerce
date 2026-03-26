@@ -54,6 +54,7 @@ Route::get('subcategory', [SubcategoryController::class, 'index']);
 Route::get('subcategory-products/{slug}', [SubcategoryController::class, 'productsBySubcategory']);
 Route::get('products', [ProductController::class, 'userIndex']);
 Route::get('products/{slug}', [ProductController::class, 'showProductDetails']);
+Route::get('products/{id}/{color}', [ProductController::class, 'showProductSize']);
 Route::get('feature-products', [ProductController::class, 'getFeaturedProducts']);
 Route::get('premium-product', [ProductController::class, 'premiumProduct']);
 

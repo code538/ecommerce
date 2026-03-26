@@ -22,14 +22,24 @@ class ProductVariantController extends BaseController
     {
         $request->validate([
             'product_id'=>'required',
-            'variant_name'=>'nullable',
+            //'variant_name'=>'nullable',
             'price'=>'required',
             'stock'=>'required'
         ]);
 
+        $exists = ProductVariant::where([
+            'product_id' => $request->product_id,
+            'color' => $request->color,
+            'size' => $request->size
+        ])->exists();
+
+        if ($exists) {
+            return $this->error('Variant already exists', null, 400);
+        }
+
         $variant = ProductVariant::create([
             'product_id'=>$request->product_id,
-            'variant_name'=>$request->variant_name,
+            //'variant_name'=>$request->variant_name,
             'color'=>$request->color,
             'size'=>$request->size,
             'price'=>$request->price,
@@ -57,7 +67,7 @@ class ProductVariantController extends BaseController
         $variant = ProductVariant::findOrFail($id);
 
         $variant->update([
-            'variant_name'=>$request->variant_name ?? null,
+            //'variant_name'=>$request->variant_name ?? null,
             'color'=>$request->color,
             'size'=>$request->size,
             'price'=>$request->price,

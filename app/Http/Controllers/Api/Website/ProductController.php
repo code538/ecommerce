@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Website;
 
 use App\Http\Controllers\Api\BaseController;
 use App\Models\Website\Product;
+use App\Models\Website\ProductVariant;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -29,8 +30,63 @@ class ProductController extends BaseController
         return $this->success($products, 'Premium product list fetched');
     }
 
+    // public function showProductDetails(string $slug)
+    // {
+    //     $product = Product::with([
+    //         'category',
+    //         'subcategory',
+    //         'images',
+    //         'features',
+    //         'specifications',
+    //         'variants',
+    //         'reviews' => function ($q) {
+    //             $q->where('status', 1);
+    //         }
+    //     ])
+    //     ->where('status', 1)
+    //     ->where('slug', $slug)
+    //     ->first();
+
+    //     if (!$product) {
+    //         return $this->error('Product not found', null, 404);
+    //     }
+
+    //     // ✅ Total Reviews
+    //     $reviewCount = $product->reviews->count();
+
+    //     // ✅ Average Rating
+    //     $avgRating = $product->reviews->avg('rating');
+
+    //     // ✅ Rating Breakdown
+    //     $ratingBreakdown = [
+    //         5 => $product->reviews->where('rating', 5)->count(),
+    //         4 => $product->reviews->where('rating', 4)->count(),
+    //         3 => $product->reviews->where('rating', 3)->count(),
+    //         2 => $product->reviews->where('rating', 2)->count(),
+    //         1 => $product->reviews->where('rating', 1)->count(),
+    //     ];
+
+    //     // ✅ Rating Ratio (percentage)
+    //     $ratingPercentage = [];
+    //     foreach ($ratingBreakdown as $star => $count) {
+    //         $ratingPercentage[$star] = $reviewCount > 0 
+    //             ? round(($count / $reviewCount) * 100, 2) 
+    //             : 0;
+    //     }
+
+    //     // ✅ Attach extra data
+    //     $product->review_summary = [
+    //         'average_rating' => round($avgRating, 1),
+    //         'total_reviews' => $reviewCount,
+    //         'rating_breakdown' => $ratingBreakdown,
+    //         'rating_percentage' => $ratingPercentage
+    //     ];
+
+    //     return $this->success($product, 'Product details fetched');
+    // }
+
     public function showProductDetails(string $slug)
-    {
+    {   //dd('okk');
         $product = Product::with([
             'category',
             'subcategory',
@@ -65,7 +121,7 @@ class ProductController extends BaseController
             1 => $product->reviews->where('rating', 1)->count(),
         ];
 
-        // ✅ Rating Ratio (percentage)
+        // ✅ Rating Percentage
         $ratingPercentage = [];
         foreach ($ratingBreakdown as $star => $count) {
             $ratingPercentage[$star] = $reviewCount > 0 
@@ -73,7 +129,7 @@ class ProductController extends BaseController
                 : 0;
         }
 
-        // ✅ Attach extra data
+        // ✅ Attach review summary
         $product->review_summary = [
             'average_rating' => round($avgRating, 1),
             'total_reviews' => $reviewCount,
@@ -81,7 +137,39 @@ class ProductController extends BaseController
             'rating_percentage' => $ratingPercentage
         ];
 
+        // 🔥🔥 IMPORTANT PART (ADD THIS)
+
+        if ($product->product_type == 'variant') {
+
+            $variants = $product->variants;
+
+            // ✅ Unique colors
+            $colors = $variants->pluck('color')->unique()->values();
+
+            // ✅ Sizes grouped by color
+            $sizesByColor = $variants->groupBy('color')->map(function ($items) {
+                return $items->pluck('size')->unique()->values();
+            });
+
+            // ✅ Attach variant data
+            $product->variant_data = [
+                'colors' => $colors,
+                'sizes_by_color' => $sizesByColor,
+                'variants' => $variants
+            ];
+        }
+
         return $this->success($product, 'Product details fetched');
+    }
+
+    public function showProductSize($id, $color)
+    {
+        $size = ProductVariant::where('product_id', $id)->where('color', $color)->get();
+        if (!$size) {
+            return $this->error('Product not found', null, 404);
+        }
+        return $this->success($size, 'Product details fetched');
+
     }
 
     public function getFeaturedProducts()
@@ -107,7 +195,9 @@ class ProductController extends BaseController
             'tag_line' => 'nullable|string|max:255',
             'premium_product' => 'nullable|boolean',
 
-            'price' => 'required|numeric|min:0',
+            'product_type' => 'required|in:simple,variant',
+
+            'price' => 'required_if:product_type,simple|nullable|numeric|min:0',
             'sale_price' => 'nullable|numeric|min:0',
 
             'stock' => 'nullable|integer|min:0',
@@ -141,10 +231,12 @@ class ProductController extends BaseController
             'tag_line' => $request->tag_line,
             'premium_product' => $request->premium_product,
 
-            'price' => $request->price,
-            'sale_price' => $request->sale_price,
+            'product_type' => $request->product_type,
 
-            'stock' => $request->stock ?? 0,
+            // ✅ IMPORTANT LOGIC
+            'price' => $request->product_type == 'simple' ? $request->price : 0,
+            'sale_price' => $request->product_type == 'simple' ? $request->sale_price : 0,
+            'stock' => $request->product_type == 'simple' ? $request->stock : 0,
 
             'rating' => 0,
             'review_count' => 0,
@@ -222,16 +314,6 @@ class ProductController extends BaseController
         }
 
         $product->update([
-
-            // 'category_id' => $request->category_id,
-            // 'subcategory_id' => $request->subcategory_id,
-            // 'name' => $request->name,
-            // 'slug' => Str::slug($request->name),
-            // 'price' => $request->price,
-            // 'stock' => $request->stock ?? $product->stock,
-            // 'description' => $request->description,
-            // 'status' => $request->status ?? $product->status
-
             'category_id' => $request->category_id,
             'subcategory_id' => $request->subcategory_id,
 
