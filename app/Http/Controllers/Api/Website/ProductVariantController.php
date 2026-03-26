@@ -21,34 +21,62 @@ class ProductVariantController extends BaseController
     public function store(Request $request)
     {
         $request->validate([
-            'product_id'=>'required',
-            //'variant_name'=>'nullable',
-            'price'=>'required',
-            'stock'=>'required'
+            'product_id' => 'required|exists:products,id',
+            'color' => 'required|string',
+
+            'size' => 'required|array|min:1',
+            'size.*' => 'required|string',
+
+            'price' => 'required|array',
+            'price.*' => 'required|numeric|min:0',
+
+            'stock' => 'required|array',
+            'stock.*' => 'required|integer|min:0',
+
+            'sale_price' => 'nullable|array'
         ]);
 
-        $exists = ProductVariant::where([
-            'product_id' => $request->product_id,
-            'color' => $request->color,
-            'size' => $request->size
-        ])->exists();
+        $product = Product::find($request->product_id);
 
-        if ($exists) {
-            return $this->error('Variant already exists', null, 400);
+        if ($product->product_type == 'simple') {
+            return $this->error('Cannot add variants to simple product', null, 400);
         }
 
-        $variant = ProductVariant::create([
-            'product_id'=>$request->product_id,
-            //'variant_name'=>$request->variant_name,
-            'color'=>$request->color,
-            'size'=>$request->size,
-            'price'=>$request->price,
-            'sale_price'=>$request->sale_price,
-            'stock'=>$request->stock
-        ]);
+        $created = [];
 
-        return $this->success($variant, 'Variant created successfully');
+        foreach ($request->size as $index => $size) {
 
+            $price = $request->price[$index] ?? null;
+            $stock = $request->stock[$index] ?? 0;
+            $salePrice = $request->sale_price[$index] ?? null;
+
+            if (!$price) {
+                continue;
+            }
+
+            $exists = ProductVariant::where([
+                'product_id' => $request->product_id,
+                'color' => $request->color,
+                'size' => $size
+            ])->exists();
+
+            if ($exists) {
+                continue;
+            }
+
+            $variant = ProductVariant::create([
+                'product_id' => $request->product_id,
+                'color' => $request->color,
+                'size' => $size,
+                'price' => $price,
+                'sale_price' => $salePrice,
+                'stock' => $stock
+            ]);
+
+            $created[] = $variant;
+        }
+
+        return $this->success($created, 'Variants created successfully');
     }
 
     public function edit ($id){
